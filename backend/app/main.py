@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.database import check_database_connection
 
 app = FastAPI(
     title="RigCheck QA API",
@@ -24,8 +27,23 @@ async def root() -> dict[str, str]:
 
 
 @app.get("/health")
-async def health_check() -> dict[str, str]:
-    return {
-        "status": "healthy",
-        "service": "rigcheck-qa-api",
-    }
+async def health_check() -> JSONResponse:
+    try:
+        await check_database_connection()
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "healthy",
+                "service": "rigcheck-qa-api",
+                "database": "connected",
+            },
+        )
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "service": "rigcheck-qa-api",
+                "database": "disconnected",
+            },
+        )
