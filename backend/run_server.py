@@ -14,13 +14,11 @@ if str(BACKEND_ROOT) not in sys.path:
 
 
 async def main() -> None:
-    config = uvicorn.Config("app.main:app", host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", "8000"))
+    config = uvicorn.Config("app.main:app", host="0.0.0.0", port=port)
     server = uvicorn.Server(config)
     await server.serve()
 
 
 if __name__ == "__main__":
-    if os.name == "nt":
-        asyncio.run(main(), loop_factory=asyncio.SelectorEventLoop)
-    else:
-        asyncio.run(main())
+    asyncio.run(main())

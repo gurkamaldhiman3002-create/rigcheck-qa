@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import AsyncIterator
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlparse, urlunparse
 
 from dotenv import load_dotenv
 from sqlalchemy import text
@@ -40,7 +40,24 @@ def _load_database_env() -> tuple[str, str, str, str, str]:
 DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT = _load_database_env()
 
 
+def _normalize_database_url(raw_url: str) -> str:
+    # Accept platform URLs like postgres:// and normalize for SQLAlchemy async psycopg.
+    parsed = urlparse(raw_url)
+    scheme = parsed.scheme.lower()
+    if scheme in {"postgres", "postgresql"}:
+        return urlunparse(("postgresql+psycopg", parsed.netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+    if scheme == "postgresql+psycopg":
+        return raw_url
+    raise RuntimeError(
+        "DATABASE_URL must use postgres://, postgresql://, or postgresql+psycopg://"
+    )
+
+
 def build_database_url(db_name: str | None = None, *, host: str | None = None, port: str | None = None) -> str:
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    if database_url:
+        return _normalize_database_url(database_url)
+
     resolved_db_name = db_name or DB_NAME
     resolved_host = host or DB_HOST
     resolved_port = port or DB_PORT

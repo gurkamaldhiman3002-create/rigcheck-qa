@@ -10,6 +10,7 @@ from app.schemas.user import UserOut
 from app.security import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     AUTH_COOKIE_NAME,
+    COOKIE_SAMESITE,
     COOKIE_SECURE,
     create_access_token,
     get_current_user,
@@ -34,7 +35,7 @@ async def login(payload: LoginRequest, response: Response, db: AsyncSession = De
         value=token,
         httponly=True,
         secure=COOKIE_SECURE,
-        samesite="lax",
+        samesite=COOKIE_SAMESITE,
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
     )
@@ -43,7 +44,7 @@ async def login(payload: LoginRequest, response: Response, db: AsyncSession = De
 
 @router.post("/logout", status_code=status.HTTP_200_OK)
 async def logout(response: Response) -> dict[str, str]:
-    response.delete_cookie(key=AUTH_COOKIE_NAME, path="/")
+    response.delete_cookie(key=AUTH_COOKIE_NAME, path="/", secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE)
     return {"message": "Logout successful"}
 
 
