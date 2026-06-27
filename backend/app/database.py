@@ -16,7 +16,10 @@ ENV_PATH = PROJECT_ROOT / ".env"
 load_dotenv(ENV_PATH, override=False)
 
 
-def _load_database_env() -> tuple[str, str, str, str, str]:
+def _load_database_env() -> tuple[str, str, str, str, str] | None:
+    if os.getenv("DATABASE_URL", "").strip():
+        return None
+
     db_name = os.getenv("POSTGRES_DB", "rigcheck")
     username = os.getenv("POSTGRES_USER")
     password = os.getenv("POSTGRES_PASSWORD")
@@ -37,7 +40,7 @@ def _load_database_env() -> tuple[str, str, str, str, str]:
     return db_name, username, password, host, port
 
 
-DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT = _load_database_env()
+_database_env = _load_database_env()
 
 
 def _normalize_database_url(raw_url: str) -> str:
@@ -58,12 +61,17 @@ def build_database_url(db_name: str | None = None, *, host: str | None = None, p
     if database_url:
         return _normalize_database_url(database_url)
 
-    resolved_db_name = db_name or DB_NAME
-    resolved_host = host or DB_HOST
-    resolved_port = port or DB_PORT
+    if _database_env is None:
+        raise RuntimeError("DATABASE_URL is not set and local POSTGRES_* configuration is unavailable")
+
+    db_name_env, db_user, db_password, db_host, db_port = _database_env
+
+    resolved_db_name = db_name or db_name_env
+    resolved_host = host or db_host
+    resolved_port = port or db_port
     return (
         "postgresql+psycopg://"
-        f"{quote_plus(DB_USER)}:{quote_plus(DB_PASSWORD)}@{resolved_host}:{resolved_port}/{resolved_db_name}"
+        f"{quote_plus(db_user)}:{quote_plus(db_password)}@{resolved_host}:{resolved_port}/{resolved_db_name}"
     )
 
 
