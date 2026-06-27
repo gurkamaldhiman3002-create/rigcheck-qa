@@ -4,9 +4,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.routes.auth import router as auth_router
 from app.api.routes.builds import router as builds_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.defects import router as defects_router
+from app.api.routes.users import router as users_router
 from app.database import check_database_connection
 
 app = FastAPI(
@@ -30,6 +32,8 @@ app.add_middleware(
 app.include_router(builds_router)
 app.include_router(defects_router)
 app.include_router(dashboard_router)
+app.include_router(auth_router)
+app.include_router(users_router)
 
 
 @app.get("/")

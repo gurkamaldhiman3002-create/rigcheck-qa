@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getDashboardSummary, listBuilds, type Build, type BuildSummary } from "@/lib/api";
+import { useRequireAuth } from "@/lib/auth";
 
 const summaryCards = [
   { key: "total_builds", label: "Total builds", accent: "from-slate-700 to-slate-900" },
@@ -14,12 +15,17 @@ const summaryCards = [
 ];
 
 export default function DashboardPage() {
+  const { loading: authLoading, authorized } = useRequireAuth(["technician", "supervisor", "admin"]);
   const [summary, setSummary] = useState<BuildSummary | null>(null);
   const [recentBuilds, setRecentBuilds] = useState<Build[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (authLoading || !authorized) {
+      return;
+    }
+
     const loadData = async () => {
       try {
         const [summaryData, buildsData] = await Promise.all([getDashboardSummary(), listBuilds({ limit: 5 })]);
@@ -32,8 +38,16 @@ export default function DashboardPage() {
       }
     };
 
-    loadData();
-  }, []);
+    void loadData();
+  }, [authLoading, authorized]);
+
+  if (authLoading || !authorized) {
+    return (
+      <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">Loading...</div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 sm:px-6 lg:px-8">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { createDefect, getBuild, listDefects, updateBuild, updateDefect, type Build, type Defect } from "@/lib/api";
+import { useRequireAuth } from "@/lib/auth";
 
 const defectInitialState = {
   defect_category: "other",
@@ -14,6 +15,7 @@ const defectInitialState = {
 };
 
 export default function BuildDetailPage() {
+  const { loading: authLoading, authorized } = useRequireAuth(["technician", "supervisor", "admin"]);
   const params = useParams<{ buildId: string }>();
   const buildId = params?.buildId;
   const [build, setBuild] = useState<Build | null>(null);
@@ -40,12 +42,24 @@ export default function BuildDetailPage() {
   }, [buildId]);
 
   useEffect(() => {
+    if (authLoading || !authorized) {
+      return;
+    }
+
     const timer = window.setTimeout(() => {
       void loadData();
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [loadData]);
+  }, [loadData, authLoading, authorized]);
+
+  if (authLoading || !authorized) {
+    return (
+      <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-6xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">Loading...</div>
+      </main>
+    );
+  }
 
   const handleStatusUpdate = async (status: string) => {
     if (!build) return;

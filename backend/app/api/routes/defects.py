@@ -6,14 +6,21 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.models.user import User, UserRole
 from app.schemas.defect import DefectCreate, DefectOut, DefectUpdate
+from app.security import require_roles
 from app.services.build_service import create_defect, delete_defect, get_build, list_defects, update_defect
 
 router = APIRouter(tags=["defects"])
 
 
 @router.post("/api/builds/{build_id}/defects", response_model=DefectOut, status_code=status.HTTP_201_CREATED)
-async def create_defect_endpoint(build_id: UUID, payload: DefectCreate, db: AsyncSession = Depends(get_db)) -> DefectOut:
+async def create_defect_endpoint(
+    build_id: UUID,
+    payload: DefectCreate,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.technician, UserRole.supervisor, UserRole.admin)),
+) -> DefectOut:
     build = await get_build(db, build_id)
     if build is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Build not found")
@@ -22,7 +29,11 @@ async def create_defect_endpoint(build_id: UUID, payload: DefectCreate, db: Asyn
 
 
 @router.get("/api/builds/{build_id}/defects", response_model=list[DefectOut])
-async def list_defects_endpoint(build_id: UUID, db: AsyncSession = Depends(get_db)) -> list[DefectOut]:
+async def list_defects_endpoint(
+    build_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.technician, UserRole.supervisor, UserRole.admin)),
+) -> list[DefectOut]:
     build = await get_build(db, build_id)
     if build is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Build not found")
@@ -31,7 +42,12 @@ async def list_defects_endpoint(build_id: UUID, db: AsyncSession = Depends(get_d
 
 
 @router.patch("/api/defects/{defect_id}", response_model=DefectOut)
-async def update_defect_endpoint(defect_id: UUID, payload: DefectUpdate, db: AsyncSession = Depends(get_db)) -> DefectOut:
+async def update_defect_endpoint(
+    defect_id: UUID,
+    payload: DefectUpdate,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.technician, UserRole.supervisor, UserRole.admin)),
+) -> DefectOut:
     from app.models.defect import Defect
 
     defect = await db.get(Defect, defect_id)
@@ -42,7 +58,11 @@ async def update_defect_endpoint(defect_id: UUID, payload: DefectUpdate, db: Asy
 
 
 @router.delete("/api/defects/{defect_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_defect_endpoint(defect_id: UUID, db: AsyncSession = Depends(get_db)) -> None:
+async def delete_defect_endpoint(
+    defect_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.supervisor, UserRole.admin)),
+) -> None:
     from app.models.defect import Defect
 
     defect = await db.get(Defect, defect_id)

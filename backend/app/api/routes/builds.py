@@ -8,7 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.build import InspectionStatus
+from app.models.user import User, UserRole
 from app.schemas.build import BuildCreate, BuildListResponse, BuildOut, BuildUpdate
+from app.security import require_roles
 from app.services.build_service import (
     create_build,
     delete_build,
@@ -21,7 +23,11 @@ router = APIRouter(prefix="/api/builds", tags=["builds"])
 
 
 @router.post("", response_model=BuildOut, status_code=status.HTTP_201_CREATED)
-async def create_build_endpoint(payload: BuildCreate, db: AsyncSession = Depends(get_db)) -> BuildOut:
+async def create_build_endpoint(
+    payload: BuildCreate,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.technician, UserRole.supervisor, UserRole.admin)),
+) -> BuildOut:
     try:
         build = await create_build(db, payload)
     except IntegrityError as exc:
@@ -40,6 +46,7 @@ async def list_builds_endpoint(
     offset: int = Query(default=0, ge=0),
     status: InspectionStatus | None = Query(default=None),
     search: str | None = Query(default=None),
+    _user: User = Depends(require_roles(UserRole.technician, UserRole.supervisor, UserRole.admin)),
 ) -> BuildListResponse:
     builds, total = await list_builds(db, limit=limit, offset=offset, status=status, search=search)
     return BuildListResponse(
@@ -51,7 +58,11 @@ async def list_builds_endpoint(
 
 
 @router.get("/{build_id}", response_model=BuildOut)
-async def get_build_endpoint(build_id: UUID, db: AsyncSession = Depends(get_db)) -> BuildOut:
+async def get_build_endpoint(
+    build_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.technician, UserRole.supervisor, UserRole.admin)),
+) -> BuildOut:
     build = await get_build(db, build_id)
     if build is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Build not found")
@@ -59,7 +70,12 @@ async def get_build_endpoint(build_id: UUID, db: AsyncSession = Depends(get_db))
 
 
 @router.patch("/{build_id}", response_model=BuildOut)
-async def update_build_endpoint(build_id: UUID, payload: BuildUpdate, db: AsyncSession = Depends(get_db)) -> BuildOut:
+async def update_build_endpoint(
+    build_id: UUID,
+    payload: BuildUpdate,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.technician, UserRole.supervisor, UserRole.admin)),
+) -> BuildOut:
     build = await get_build(db, build_id)
     if build is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Build not found")
@@ -76,7 +92,11 @@ async def update_build_endpoint(build_id: UUID, payload: BuildUpdate, db: AsyncS
 
 
 @router.delete("/{build_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_build_endpoint(build_id: UUID, db: AsyncSession = Depends(get_db)) -> None:
+async def delete_build_endpoint(
+    build_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(require_roles(UserRole.supervisor, UserRole.admin)),
+) -> None:
     build = await get_build(db, build_id)
     if build is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Build not found")

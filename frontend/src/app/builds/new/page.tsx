@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createBuild } from "@/lib/api";
+import { useRequireAuth } from "@/lib/auth";
 
 const initialState = {
   serial_number: "",
@@ -21,6 +22,7 @@ const initialState = {
 };
 
 export default function NewInspectionPage() {
+  const { loading: authLoading, authorized } = useRequireAuth(["technician", "supervisor", "admin"]);
   const router = useRouter();
   const [form, setForm] = useState(initialState);
   const [submitting, setSubmitting] = useState(false);
@@ -57,6 +59,14 @@ export default function NewInspectionPage() {
       setSubmitting(false);
     }
   };
+
+  if (authLoading || !authorized) {
+    return (
+      <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-5xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">Loading...</div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 sm:px-6 lg:px-8">

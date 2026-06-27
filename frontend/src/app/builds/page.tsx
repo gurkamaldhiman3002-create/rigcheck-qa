@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { listBuilds, type Build } from "@/lib/api";
+import { useRequireAuth } from "@/lib/auth";
 
 export default function BuildsPage() {
+  const { loading: authLoading, authorized } = useRequireAuth(["technician", "supervisor", "admin"]);
   const [builds, setBuilds] = useState<Build[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,14 +27,26 @@ export default function BuildsPage() {
   }, [search, status]);
 
   useEffect(() => {
+    if (authLoading || !authorized) {
+      return;
+    }
+
     const timer = window.setTimeout(() => {
       void loadBuilds();
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [loadBuilds]);
+  }, [loadBuilds, authLoading, authorized]);
 
   const visibleBuilds = useMemo(() => builds, [builds]);
+
+  if (authLoading || !authorized) {
+    return (
+      <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">Loading...</div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 sm:px-6 lg:px-8">

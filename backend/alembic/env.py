@@ -9,7 +9,7 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.database import Base, DATABASE_URL
-from app.models import Build, Defect
+from app.models import Build, Defect, User
 
 config = context.config
 if config.config_file_name is not None:
