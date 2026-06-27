@@ -26,3 +26,8 @@ backend/.env*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local dev helper artifacts
+
+.dev_backend_pid
+.dev_frontend_pid

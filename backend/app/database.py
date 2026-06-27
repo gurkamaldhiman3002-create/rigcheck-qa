@@ -2,30 +2,30 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import AsyncIterator
+from urllib.parse import quote_plus
 
+from dotenv import load_dotenv
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import DeclarativeBase
 
 
-def _load_database_env() -> tuple[str, str, str]:
-    env_path = Path(__file__).resolve().parents[2] / ".env"
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ENV_PATH = PROJECT_ROOT / ".env"
+load_dotenv(ENV_PATH, override=False)
 
-    db_name = os.getenv("POSTGRES_DB")
+
+def _load_database_env() -> tuple[str, str, str, str, str]:
+    db_name = os.getenv("POSTGRES_DB", "rigcheck")
     username = os.getenv("POSTGRES_USER")
     password = os.getenv("POSTGRES_PASSWORD")
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
 
     missing = [
         name
         for name, value in {
-            "POSTGRES_DB": db_name,
             "POSTGRES_USER": username,
             "POSTGRES_PASSWORD": password,
         }.items()
@@ -34,14 +34,36 @@ def _load_database_env() -> tuple[str, str, str]:
     if missing:
         raise RuntimeError(f"Missing required database environment variables: {', '.join(missing)}")
 
-    return db_name, username, password
+    return db_name, username, password, host, port
 
 
-DB_NAME, DB_USER, DB_PASSWORD = _load_database_env()
-DATABASE_URL = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@localhost:5432/{DB_NAME}"
+DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT = _load_database_env()
+
+
+def build_database_url(db_name: str | None = None, *, host: str | None = None, port: str | None = None) -> str:
+    resolved_db_name = db_name or DB_NAME
+    resolved_host = host or DB_HOST
+    resolved_port = port or DB_PORT
+    return (
+        "postgresql+psycopg://"
+        f"{quote_plus(DB_USER)}:{quote_plus(DB_PASSWORD)}@{resolved_host}:{resolved_port}/{resolved_db_name}"
+    )
+
+
+DATABASE_URL = build_database_url()
+
+
+class Base(DeclarativeBase):
+    pass
+
 
 engine = create_async_engine(DATABASE_URL, echo=False)
-AsyncSessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+AsyncSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False, autoflush=False, autocommit=False)
+
+
+async def get_db() -> AsyncIterator[AsyncSession]:
+    async with AsyncSessionLocal() as session:
+        yield session
 
 
 async def check_database_connection() -> bool:
